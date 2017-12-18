@@ -2,6 +2,7 @@ var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
+var session = require('express-session');
 
 
 var db = require('./app/config');
@@ -12,6 +13,11 @@ var Link = require('./app/models/link');
 var Click = require('./app/models/click');
 
 var app = express();
+//WE ADDED THIS TOO
+app.use(session({
+  secret: 'keyboard cat',
+  cookie: {maxAge: 60000}
+}));
 
 app.set('views', __dirname + '/views');
 app.set('view engine', 'ejs');
@@ -23,25 +29,84 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static(__dirname + '/public'));
 
 
-app.get('/', 
-function(req, res) {
-  res.render('index');
+app.get('/', function(req, res) {
+  var sessData = req.session;
+  if (!sessData.user) {
+    res.redirect('/login');
+  } else {
+    res.render('index');
+  }
 });
 
-app.get('/create', 
-function(req, res) {
-  res.render('index');
+//OUR CODE STARTS HERE
+
+app.get('/login', function(req, res) {
+  res.render('login');
 });
 
-app.get('/links', 
-function(req, res) {
-  Links.reset().fetch().then(function(links) {
-    res.status(200).send(links.models);
+app.post('/login', function(req, res) {
+  let username = req.body.username;
+  let password = req.body.password;
+    
+  new User({ username: username }).fetch().then(function(found) {
+    if (found) {
+      if (found.attributes.password === password) {
+        req.session.user = username;
+        res.redirect('/');
+      }
+    } else {
+      console.log('This User is not the user youre looking for');
+      res.redirect('/login');
+    }
+  });
+  
+});
+
+app.get('/signup', function(req, res) {
+  res.render('signup');
+});
+
+app.post('/signup', function(req, res) {
+  let username = req.body.username;
+  let password = req.body.password;
+  
+  new User({ username: username }).fetch().then(function(found) {
+    if (found) {
+      console.log('Username taken');
+      res.redirect('/signup');
+    } else {
+      Users.create({
+        username: username,
+        password: password,
+      });
+      req.session.user = username;
+      res.redirect('/');
+    }
   });
 });
 
-app.post('/links', 
-function(req, res) {
+
+//OUR CODE ENDS HERE
+
+app.get('/create', function(req, res) {
+  if (!req.session.user) {
+    res.redirect('/');
+  } else {
+    res.render('index');
+  }
+});
+
+app.get('/links', function(req, res) {
+  if (!req.session.user) {
+    res.redirect('/login');
+  } else {
+    Links.reset().fetch().then(function(links) {
+      res.status(200).send(links.models);
+    });
+  }
+});
+
+app.post('/links', function(req, res) {
   var uri = req.body.url;
 
   if (!util.isValidUrl(uri)) {
@@ -64,9 +129,9 @@ function(req, res) {
           title: title,
           baseUrl: req.headers.origin
         })
-        .then(function(newLink) {
-          res.status(200).send(newLink);
-        });
+          .then(function(newLink) {
+            res.status(200).send(newLink);
+          });
       });
     }
   });
