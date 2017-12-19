@@ -94,6 +94,11 @@ app.post('/signup', function(req, res) {
   });
 });
 
+app.get('/logout', function(req, res) {
+  req.session.destroy();
+  res.redirect('/login');
+});
+
 
 //OUR CODE ENDS HERE
 
