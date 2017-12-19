@@ -114,7 +114,7 @@ app.get('/links', function(req, res) {
   if (!req.session.user) {
     res.redirect('/login');
   } else {
-    Links.reset().fetch().then(function(links) {
+    Links.reset().query('where', 'user', '=', req.session.user).fetch().then(function(links) {
       res.status(200).send(links.models);
     });
   }
@@ -128,7 +128,7 @@ app.post('/links', function(req, res) {
     return res.sendStatus(404);
   }
 
-  new Link({ url: uri }).fetch().then(function(found) {
+  new Link({ url: uri, user: req.session.user }).fetch().then(function(found) {
     if (found) {
       res.status(200).send(found.attributes);
     } else {
@@ -141,7 +141,8 @@ app.post('/links', function(req, res) {
         Links.create({
           url: uri,
           title: title,
-          baseUrl: req.headers.origin
+          baseUrl: req.headers.origin,
+          user: req.session.user
         })
           .then(function(newLink) {
             res.status(200).send(newLink);
