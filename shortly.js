@@ -3,6 +3,8 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
+var bcrypt = require('bcrypt-nodejs');
+
 
 
 var db = require('./app/config');
@@ -11,6 +13,7 @@ var User = require('./app/models/user');
 var Links = require('./app/collections/links');
 var Link = require('./app/models/link');
 var Click = require('./app/models/click');
+
 
 var app = express();
 //WE ADDED THIS TOO
@@ -50,10 +53,14 @@ app.post('/login', function(req, res) {
     
   new User({ username: username }).fetch().then(function(found) {
     if (found) {
-      if (found.attributes.password === password) {
-        req.session.user = username;
-        res.redirect('/');
-      }
+      bcrypt.compare(password, found.attributes.password, function(err, response) {
+        if (response) {
+          req.session.user = username;
+          res.redirect('/');
+        } else {
+          res.redirect('/login');
+        } 
+      });
     } else {
       console.log('This User is not the user youre looking for');
       res.redirect('/login');
@@ -75,12 +82,14 @@ app.post('/signup', function(req, res) {
       console.log('Username taken');
       res.redirect('/signup');
     } else {
-      Users.create({
-        username: username,
-        password: password,
+      bcrypt.hash(password, null, null, function(err, hash) {
+        Users.create({
+          username: username,
+          password: hash,
+        });
+        req.session.user = username;
+        res.redirect('/');  
       });
-      req.session.user = username;
-      res.redirect('/');
     }
   });
 });
